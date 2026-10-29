@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>*{box-sizing:border-box}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>酸塩基フィーバー</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;800&display=swap">
+<style>
+/* 落ちものパズル。酸(赤H⁺)と塩基(紫OH⁻)の「同じ数のかたまり」が触れると中和して消える */
+:root{
+  --bg:#0d0820; --panel:#1a1036; --fg:#fff6e8; --dim:#a99cc9;
+  --acid:#ff3b5c; --neutral:#3dff9a; --base:#8f5bff; --gold:#ffd23f;
+  --display:"Dela Gothic One","Hiragino Sans",sans-serif;
+  --body:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);overflow:hidden;touch-action:manipulation;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));}
+.wrap{max-width:520px;margin:0 auto;height:100%;display:flex;flex-direction:column;gap:10px;padding-block:12px}
+.hud{display:flex;justify-content:space-between;align-items:center;font-family:var(--display);font-variant-numeric:tabular-nums;gap:10px}
+.score{font-size:26px;color:var(--gold)}
+.next{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--dim)}
+.next canvas{width:28px;height:56px}
+.field{position:relative;flex:1;min-height:0;display:flex;justify-content:center}
+#cv{height:100%;max-width:100%;aspect-ratio:1/2;border-radius:16px;background:var(--panel);border:3px solid #ffffff14}
+.pads{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pads button{font:400 22px var(--display);color:var(--fg);background:#2a1b52;border:0;border-radius:14px;padding:14px 0;cursor:pointer;box-shadow:0 5px 0 #0006}
+.pads button:active{transform:translateY(4px);box-shadow:0 1px 0 #0006}
+.pads button:focus-visible{outline:3px solid var(--gold)}
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;text-align:center;padding:20px;background:#0d0820e0;border-radius:16px}
+.overlay h1{font-family:var(--display);font-size:clamp(38px,11vw,64px);line-height:1.05;margin:0;
+  background:linear-gradient(90deg,var(--acid),var(--gold),var(--neutral),var(--base));-webkit-background-clip:text;background-clip:text;color:transparent;animation:hue 3s linear infinite}
+.overlay p{margin:0;line-height:1.8;color:var(--dim);max-width:26em;font-size:14px}
+.overlay b{color:var(--fg)}
+.go{font:400 24px var(--display);color:var(--bg);background:var(--gold);border:0;border-radius:999px;padding:14px 42px;cursor:pointer;box-shadow:0 6px 0 #b8901a;animation:pulse 1s infinite}
+.qz{position:absolute;left:50%;top:12%;transform:translateX(-50%);width:min(92%,340px);background:#0d0820f0;border:3px solid var(--gold);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px;text-align:center;z-index:3}
+.qz .q{font-weight:800;font-size:18px;line-height:1.5;text-wrap:balance}
+.qz .opts{display:grid;gap:8px}
+.qz button{font:800 16px var(--body);color:var(--fg);background:#2a1b52;border:2px solid #ffffff22;border-radius:12px;padding:12px;cursor:pointer}
+.qz button:hover{border-color:var(--gold)}
+.qz button.ok{background:var(--neutral);color:var(--bg)}
+.qz button.ng{background:var(--acid)}
+.qz .res{font-family:var(--display);font-size:22px;min-height:1.2em}
+.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translate(-6px,3px)}75%{transform:translate(6px,-3px)}}
+@keyframes pulse{50%{transform:scale(1.07)}}
+@keyframes hue{to{filter:hue-rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+
+<div class="wrap" id="wrap">
+  <div class="hud"><span class="score" id="sc">0</span><span id="ch" style="color:var(--neutral)"></span><span class="next">NEXT<canvas id="nx" width="56" height="112"></canvas></span></div>
+  <div class="field">
+    <canvas id="cv"></canvas>
+    <div class="qz" id="qz" hidden></div>
+    <div class="overlay" id="ov">
+      <h1>酸塩基<br>フィーバー</h1>
+      <p>赤は酸(H⁺)、紫は塩基(OH⁻)。<br>2個以上つながった酸のかたまりと塩基のかたまりが、<b>同じ数</b>で触れ合うと中和して H₂O になって消える。<br>消えて落ちた先でまた中和したら連鎖！</p>
+      <p>落ちてくる前に3択クイズ。正解なら自由に動かせる。不正解だと灰色のお邪魔ぷよが勝手に落ちてくる。お邪魔は隣で中和が起きると一緒に消える。</p>
+      <p>← → 移動 ／ ↑ 回転 ／ ↓ 落とす</p>
+      <button class="go" id="start">スタート</button>
+    </div>
+  </div>
+  <div class="pads">
+    <button id="bl" aria-label="左">◀</button><button id="br" aria-label="右">▶</button><button id="bu" aria-label="回転">⟳</button><button id="bd" aria-label="落とす">▼</button>
+  </div>
+</div>
+
+<script>
+const CW=6,CH=12,COL=[null,"#ff3b5c","#8f5bff","#5a5470"],LBL=[null,"H⁺","OH⁻","×"];
+// [問題, 正解, ハズレ, ハズレ]
+const SUB=[["HCl","酸"],["H₂SO₄","酸"],["CH₃COOH","酸"],["レモン汁","酸"],["お酢","酸"],["NaOH","塩基"],["KOH","塩基"],["NH₃","塩基"],["Ca(OH)₂","塩基"],["石けん水","塩基"],["食塩水","中性"],["純水","中性"],["砂糖水","中性"]];
+const FACT=[
+ ["水に溶けて H⁺ を出すのは？","酸","塩基","塩"],["水に溶けて OH⁻ を出すのは？","塩基","酸","水"],
+ ["pH 7 は？","中性","酸性","塩基性"],["pH 3 は？","酸性","中性","塩基性"],["pH 11 は？","塩基性","酸性","中性"],
+ ["青色リトマス紙を赤くするのは？","酸","塩基","中性"],["赤色リトマス紙を青くするのは？","塩基","酸","中性"],
+ ["フェノールフタレインが赤くなるのは？","塩基性","酸性","中性"],["H⁺ + OH⁻ → ？","H₂O","H₂","O₂"],
+ ["HCl + NaOH → H₂O + ？","NaCl","NaOH","Cl₂"],["pH が 1 下がると H⁺ の濃さは？","10倍","2倍","半分"],
+ ["ブレンステッドの定義で H⁺ を渡すのは？","酸","塩基","塩"],["Mg を塩酸に入れると出る気体は？","水素","酸素","塩素"],["水に溶ける塩基の別名は？","アルカリ","エステル","ハロゲン"],
+];
+function makeQ(){if(Math.random()<.5){const[s,a]=SUB[Math.random()*SUB.length|0];return{q:`${s} は何性？`,a,o:["酸","中性","塩基"]}}
+  const f=FACT[Math.random()*FACT.length|0];return{q:f[0],a:f[1],o:shuf(f.slice(1))}}
+const shuf=a=>a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(v=>v[1]);
+const $=s=>document.querySelector(s),cv=$("#cv"),cx=cv.getContext("2d"),nx=$("#nx").getContext("2d");
+let S;function rs(){const r=cv.getBoundingClientRect();const d=devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;S=cv.width/CW;cx.setTransform(1,0,0,1,0,0)}
+addEventListener("resize",rs);
+
+let ac;function beep(f,d=.1,t="square",v=.12){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+
+let grid,cur,nxt,score,chain,state,dropT,lastT,parts,texts,flash,speed;
+const rnd=()=>Math.random()<.5?1:2;
+const pair=()=>({a:rnd(),b:rnd()});
+// 回転：子ぷ…ではなく子セルの向き 0上 1右 2下 3左
+const DIR=[[0,-1],[1,0],[0,1],[-1,0]];
+function cells(p){const[dx,dy]=DIR[p.r];return[[p.x,p.y,p.a],[p.x+dx,p.y+dy,p.b]]}
+const free=(x,y)=>x>=0&&x<CW&&y<CH&&(y<0||!grid[y][x]);
+const fits=p=>cells(p).every(([x,y])=>free(x,y));
+
+function start(){rs();grid=[...Array(CH)].map(()=>Array(CW).fill(0));score=0;parts=[];texts=[];flash=[];speed=.8;nxt=pair();spawn();$("#ov").hidden=true;lastT=performance.now();dropT=0;requestAnimationFrame(loop)}
+function spawn(){
+  state="ask";const Q=makeQ(),qz=$("#qz");
+  qz.innerHTML=`<div class="q">${Q.q}</div><div class="opts">${Q.o.map(o=>`<button>${o}</button>`).join("")}</div><div class="res"></div>`;qz.hidden=false;
+  qz.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+    if(state!=="ask")return;const ok=b.textContent===Q.a;state="answered";
+    qz.querySelectorAll("button").forEach(x=>{if(x.textContent===Q.a)x.classList.add("ok")});
+    if(ok){b.classList.add("ok");qz.querySelector(".res").textContent="正解！自由に動かせ";qz.querySelector(".res").style.color="#3dff9a";[0,1,2].forEach(k=>setTimeout(()=>beep(660*Math.pow(1.26,k),.08),k*50))}
+    else{b.classList.add("ng");qz.querySelector(".res").textContent="ブッブー！お邪魔ぷよ";qz.querySelector(".res").style.color="#ff3b5c";beep(110,.3,"sawtooth",.18)}
+    setTimeout(()=>{qz.hidden=true;drop(ok)},ok?500:900);
+  });
+}
+function drop(ok){
+  cur=ok?{...nxt,x:2,y:0,r:0}:{a:3,b:3,x:Math.random()*CW|0,y:0,r:2,auto:true};
+  if(ok){nxt=pair();drawNext()}
+  dropT=0;state="fall";if(!fits(cur))over()}
+function move(dx){if(state!=="fall"||cur.auto)return;const p={...cur,x:cur.x+dx};if(fits(p)){cur=p;beep(300,.03)}}
+function rot(){if(state!=="fall"||cur.auto)return;for(const k of[0,-1,1]){const p={...cur,r:(cur.r+1)%4,x:cur.x+k};if(fits(p)){cur=p;beep(500,.04);return}}}
+function down(){if(state!=="fall")return;const p={...cur,y:cur.y+1};if(fits(p)){cur=p;score+=1;hud();return true}lock();return false}
+function lock(){for(const[x,y,t]of cells(cur))if(y>=0)grid[y][x]=t;cur=null;chain=0;beep(180,.06,"triangle");settle()}
+
+function gravity(){let moved=false;for(let x=0;x<CW;x++){let w=CH-1;for(let y=CH-1;y>=0;y--)if(grid[y][x]){if(w!==y){grid[w][x]=grid[y][x];grid[y][x]=0;moved=true}w--}}return moved}
+function groups(){const id=grid.map(r=>r.map(()=>-1)),gs=[];
+  for(let y=0;y<CH;y++)for(let x=0;x<CW;x++)if(grid[y][x]&&id[y][x]<0){const t=grid[y][x],g={t,c:[]},st=[[x,y]];id[y][x]=gs.length;
+    while(st.length){const[cx_,cy]=st.pop();g.c.push([cx_,cy]);for(const[dx,dy]of DIR){const X=cx_+dx,Y=cy+dy;if(X>=0&&X<CW&&Y>=0&&Y<CH&&grid[Y][X]===t&&id[Y][X]<0){id[Y][X]=gs.length;st.push([X,Y])}}}gs.push(g)}
+  return{gs,id}}
+function neutralize(){const{gs,id}=groups(),kill=new Set();
+  gs.forEach((g,i)=>{if(g.t!==1||g.c.length<2)return;const nb=new Set();
+    for(const[x,y]of g.c)for(const[dx,dy]of DIR){const X=x+dx,Y=y+dy;if(X>=0&&X<CW&&Y>=0&&Y<CH&&grid[Y][X]===2)nb.add(id[Y][X])}
+    for(const j of nb){const b=gs[j];if(b.c.length===g.c.length&&!kill.has(j)){kill.add(i);kill.add(j);break}}});
+  const dead=[...kill].flatMap(i=>gs[i].c),seen=new Set(dead.map(([x,y])=>x+","+y));
+  // 中和の隣にあるお邪魔ぷよも消える
+  for(const[x,y]of [...dead])for(const[dx,dy]of DIR){const X=x+dx,Y=y+dy;if(X>=0&&X<CW&&Y>=0&&Y<CH&&grid[Y][X]===3&&!seen.has(X+","+Y)){seen.add(X+","+Y);dead.push([X,Y])}}
+  return{dead,n:kill.size/2}}
+function settle(){
+  state="resolve";
+  setTimeout(function step(){
+    if(gravity()){setTimeout(step,90);return}
+    const{dead,n}=neutralize();
+    if(!dead.length){if(chain>=2){}spawn();return}
+    chain++;const pts=dead.length*50*Math.pow(2,chain-1)*n;score+=pts;
+    for(const[x,y]of dead){burst((x+.5)*S,(y+.5)*S,COL[grid[y][x]]);grid[y][x]=0}
+    const[mx,my]=dead[0];
+    texts.push({x:(mx+.5)*S,y:(my+.5)*S,t:"H₂O!",c:"#3dff9a",s:S*.6,life:40});
+    if(chain>=2){texts.push({x:cv.width/2,y:cv.height*.4,t:chain+"連鎖！",c:"#ffd23f",s:S*(1+chain*.2),life:60});const w=$("#wrap");w.classList.remove("shake");void w.offsetWidth;w.classList.add("shake")}
+    [0,1,2].forEach(k=>setTimeout(()=>beep(440*Math.pow(1.26,k+chain),.1),k*60));
+    speed=Math.min(4,speed+.03);hud();setTimeout(step,380);
+  },60);
+}
+function over(){state="over";beep(120,.5,"sawtooth",.2);
+  $("#ov").innerHTML=`<div>GAME OVER</div><div style="font:400 44px var(--display);color:var(--gold)">${score}点</div><p>中和は H⁺ と OH⁻ が同じ数ずつ反応して水になる。だから同じ数のかたまりで消える。</p><button class="go" id="again">もう一回</button>`;
+  $("#ov").hidden=false;$("#again").onclick=start}
+function hud(){$("#sc").textContent=score;$("#ch").textContent=chain>=2?chain+"連鎖":""}
+function burst(x,y,c){for(let k=0;k<14;k++)parts.push({x,y,vx:(Math.random()-.5)*S*.25,vy:-Math.random()*S*.25,c:k%3?c:"#3dff9a",life:40,s:S*.12})}
+
+function cell(g,x,y,t,s,ghost){const r=s*.44,X=x*s+s/2,Y=y*s+s/2;g.globalAlpha=ghost?.25:1;g.fillStyle=COL[t];g.beginPath();g.arc(X,Y,r,0,7);g.fill();
+  g.fillStyle="#ffffff55";g.beginPath();g.arc(X-r*.35,Y-r*.35,r*.3,0,7);g.fill();
+  g.fillStyle="#fff6e8";g.font=`800 ${s*.28}px "M PLUS Rounded 1c",sans-serif`;g.textAlign="center";g.textBaseline="middle";g.fillText(LBL[t],X,Y+1);g.globalAlpha=1}
+function drawNext(){nx.clearRect(0,0,56,112);cell(nx,0,0,nxt.b,56);cell(nx,0,1,nxt.a,56)}
+
+function loop(now){
+  if(state==="over")return;const dt=(now-lastT)/1000;lastT=now;
+  if(state==="fall"){dropT+=dt*(cur.auto?14:speed);if(dropT>=1){dropT=0;down()}}
+  cx.clearRect(0,0,cv.width,cv.height);
+  cx.strokeStyle="#ffffff0d";for(let x=1;x<CW;x++){cx.beginPath();cx.moveTo(x*S,0);cx.lineTo(x*S,cv.height);cx.stroke()}
+  for(let y=0;y<CH;y++)for(let x=0;x<CW;x++)if(grid[y][x])cell(cx,x,y,grid[y][x],S);
+  if(cur){let g={...cur};while(fits({...g,y:g.y+1}))g.y++;for(const[x,y,t]of cells(g))if(y>=0)cell(cx,x,y,t,S,true);for(const[x,y,t]of cells(cur))if(y>=0)cell(cx,x,y,t,S)}
+  parts=parts.filter(p=>p.life-->0);for(const p of parts){p.vy+=S*.012;p.x+=p.vx;p.y+=p.vy;cx.fillStyle=p.c;cx.fillRect(p.x,p.y,p.s,p.s)}
+  texts=texts.filter(t=>t.life-->0);for(const t of texts){t.y-=1;cx.globalAlpha=Math.min(1,t.life/15);cx.font=`400 ${t.s}px "Dela Gothic One",sans-serif`;cx.fillStyle=t.c;cx.textAlign="center";cx.fillText(t.t,t.x,t.y);cx.globalAlpha=1}
+  requestAnimationFrame(loop);
+}
+$("#start").onclick=start;
+const free_=()=>state==="fall"&&!cur.auto;
+const act={bl:()=>move(-1),br:()=>move(1),bu:rot,bd:()=>{if(free_())while(down());}};
+for(const k in act)$("#"+k).addEventListener("pointerdown",e=>{e.preventDefault();act[k]()});
+addEventListener("keydown",e=>{const f={ArrowLeft:act.bl,ArrowRight:act.br,ArrowUp:act.bu,z:act.bu,x:act.bu,ArrowDown:()=>{if(free_())down()}," ":act.bd}[e.key];if(f){e.preventDefault();f()}});
+rs();
+</script>
+
+</body></html>
