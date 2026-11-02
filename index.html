@@ -4,7 +4,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;800&display=swap">
 <style>
-/* 落ちものパズル。酸(赤H⁺)と塩基(紫OH⁻)のが混ざって4個以上つながると中和して消える */
+/* 落ちものパズル。酸(赤H⁺)と塩基(紫OH⁻)のがつながって同じ数ずつになると中和して消える */
 :root{
   --bg:#0d0820; --panel:#1a1036; --fg:#fff6e8; --dim:#a99cc9;
   --acid:#ff3b5c; --neutral:#3dff9a; --base:#8f5bff; --gold:#ffd23f;
@@ -54,7 +54,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);overflow:hidde
     <div class="qz" id="qz" hidden></div>
     <div class="overlay" id="ov">
       <h1>酸塩基<br>フィーバー</h1>
-      <p>赤は酸(H⁺)、紫は塩基(OH⁻)。<br>赤と紫が混ざって<b>4個以上</b>つながると中和して H₂O になって消える。<br>消えて落ちた先でまた中和したら連鎖！</p>
+      <p>赤は酸(H⁺)、紫は塩基(OH⁻)。<br>つながった赤と紫が<b>同じ数ずつ</b>(2個ずつ以上)になると中和して H₂O になって消える。<br>消えて落ちた先でまた中和したら連鎖！</p>
       <p>落ちてくる前に3択クイズ。正解なら自由に動かせる。不正解だと灰色のお邪魔ぷよが勝手に落ちてくる。お邪魔は隣で中和が起きると一緒に消える。</p>
       <p>← → 移動 ／ ↑ 回転 ／ ↓ 落とす</p>
       <button class="go" id="start">スタート</button>
@@ -122,11 +122,11 @@ function groups(){const id=grid.map(r=>r.map(()=>-1)),gs=[];
     while(st.length){const[cx_,cy]=st.pop();g.c.push([cx_,cy]);for(const[dx,dy]of DIR){const X=cx_+dx,Y=cy+dy;if(X>=0&&X<CW&&Y>=0&&Y<CH&&grid[Y][X]===t&&id[Y][X]<0){id[Y][X]=gs.length;st.push([X,Y])}}}gs.push(g)}
   return{gs,id}}
 function neutralize(){const seen=new Set(),dead=[];let n=0;const K=(x,y)=>x+","+y;
-  // 赤と紫が混ざって4個以上つながると中和
+  // つながった赤と紫が同じ数(2個ずつ以上)なら中和
   for(let y=0;y<CH;y++)for(let x=0;x<CW;x++){const t=grid[y][x];if(t!==1&&t!==2||seen.has(K(x,y)))continue;
     const c=[],st=[[x,y]],types=new Set();seen.add(K(x,y));
     while(st.length){const[a,b]=st.pop();c.push([a,b]);types.add(grid[b][a]);for(const[dx,dy]of DIR){const X=a+dx,Y=b+dy;if(X>=0&&X<CW&&Y>=0&&Y<CH&&(grid[Y][X]===1||grid[Y][X]===2)&&!seen.has(K(X,Y))){seen.add(K(X,Y));st.push([X,Y])}}}
-    if(c.length>=4&&types.size===2){dead.push(...c);n++}}
+    const red=c.filter(([p,q])=>grid[q][p]===1).length;if(red>=2&&red*2===c.length){dead.push(...c);n++}}
   const d=new Set(dead.map(([x,y])=>K(x,y)));
   // 中和の隣にあるお邪魔ぷよも消える
   for(const[x,y]of [...dead])for(const[dx,dy]of DIR){const X=x+dx,Y=y+dy;if(X>=0&&X<CW&&Y>=0&&Y<CH&&grid[Y][X]===3&&!d.has(K(X,Y))){d.add(K(X,Y));dead.push([X,Y])}}
@@ -147,7 +147,7 @@ function settle(){
   },60);
 }
 function over(){state="over";beep(120,.5,"sawtooth",.2);
-  $("#ov").innerHTML=`<div>GAME OVER</div><div style="font:400 44px var(--display);color:var(--gold)">${score}点</div><p>中和は H⁺ と OH⁻ が反応して水になること。</p><button class="go" id="again">もう一回</button>`;
+  $("#ov").innerHTML=`<div>GAME OVER</div><div style="font:400 44px var(--display);color:var(--gold)">${score}点</div><p>中和は H⁺ と OH⁻ が同じ数ずつ反応して水になる。</p><button class="go" id="again">もう一回</button>`;
   $("#ov").hidden=false;$("#again").onclick=start}
 function hud(){$("#sc").textContent=score;$("#ch").textContent=chain>=2?chain+"連鎖":""}
 function burst(x,y,c){for(let k=0;k<14;k++)parts.push({x,y,vx:(Math.random()-.5)*S*.25,vy:-Math.random()*S*.25,c:k%3?c:"#3dff9a",life:40,s:S*.12})}
