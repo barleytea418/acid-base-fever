@@ -48,7 +48,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);overflow:hidde
 </style>
 
 <div class="wrap" id="wrap">
-  <div class="hud"><span class="score" id="sc">0</span><span id="ch" style="color:var(--neutral)"></span><span class="next">NEXT<canvas id="nx" width="56" height="112"></canvas></span></div>
+  <div class="hud"><span class="score" id="sc">0</span><span id="ch" style="color:var(--neutral)"></span><button id="mt" aria-label="BGMの切り替え" style="background:none;border:0;font-size:20px;cursor:pointer">🔊</button><span class="next">NEXT<canvas id="nx" width="56" height="112"></canvas></span></div>
   <div class="field">
     <canvas id="cv"></canvas>
     <div class="qz" id="qz" hidden></div>
@@ -84,6 +84,9 @@ const $=s=>document.querySelector(s),cv=$("#cv"),cx=cv.getContext("2d"),nx=$("#n
 let S;function rs(){const r=cv.getBoundingClientRect();const d=devicePixelRatio||1;cv.width=r.width*d;cv.height=r.height*d;S=cv.width/CW;cx.setTransform(1,0,0,1,0,0)}
 addEventListener("resize",rs);
 
+// 本人の声のBGM
+const bgm=new Audio("bgm.mp3");bgm.loop=true;bgm.volume=.6;let mute=false;
+function bgmPlay(){if(mute)return;bgm.currentTime=0;bgm.play().catch(()=>{})}
 let ac;function beep(f,d=.1,t="square",v=.12){try{ac=ac||new AudioContext();const o=ac.createOscillator(),g=ac.createGain();o.type=t;o.frequency.value=f;g.gain.setValueAtTime(v,ac.currentTime);g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(g).connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
 
 let grid,cur,nxt,score,chain,state,dropT,lastT,parts,texts,flash,speed;
@@ -95,7 +98,7 @@ function cells(p){const[dx,dy]=DIR[p.r];return[[p.x,p.y,p.a],[p.x+dx,p.y+dy,p.b]
 const free=(x,y)=>x>=0&&x<CW&&y<CH&&(y<0||!grid[y][x]);
 const fits=p=>cells(p).every(([x,y])=>free(x,y));
 
-function start(){rs();grid=[...Array(CH)].map(()=>Array(CW).fill(0));score=0;parts=[];texts=[];flash=[];speed=.8;nxt=pair();spawn();$("#ov").hidden=true;lastT=performance.now();dropT=0;requestAnimationFrame(loop)}
+function start(){bgmPlay();rs();grid=[...Array(CH)].map(()=>Array(CW).fill(0));score=0;parts=[];texts=[];flash=[];speed=.8;nxt=pair();spawn();$("#ov").hidden=true;lastT=performance.now();dropT=0;requestAnimationFrame(loop)}
 function spawn(){
   state="ask";const Q=makeQ(),qz=$("#qz");
   qz.innerHTML=`<div class="q">${Q.q}</div><div class="opts">${Q.o.map(o=>`<button>${o}</button>`).join("")}</div><div class="res"></div>`;qz.hidden=false;
@@ -146,7 +149,7 @@ function settle(){
     speed=Math.min(4,speed+.03);hud();setTimeout(step,380);
   },60);
 }
-function over(){state="over";beep(120,.5,"sawtooth",.2);
+function over(){bgm.pause();state="over";beep(120,.5,"sawtooth",.2);
   $("#ov").innerHTML=`<div>GAME OVER</div><div style="font:400 44px var(--display);color:var(--gold)">${score}点</div><p>中和は H⁺ と OH⁻ が同じ数ずつ反応して水になる。</p><button class="go" id="again">もう一回</button>`;
   $("#ov").hidden=false;$("#again").onclick=start}
 function hud(){$("#sc").textContent=score;$("#ch").textContent=chain>=2?chain+"連鎖":""}
@@ -169,6 +172,7 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 $("#start").onclick=start;
+$("#mt").onclick=()=>{mute=!mute;$("#mt").textContent=mute?"🔇":"🔊";if(mute)bgm.pause();else if(state&&state!=="over")bgm.play().catch(()=>{})};
 const free_=()=>state==="fall"&&!cur.auto;
 const act={bl:()=>move(-1),br:()=>move(1),bu:rot,bd:()=>{if(free_())while(down());}};
 for(const k in act)$("#"+k).addEventListener("pointerdown",e=>{e.preventDefault();act[k]()});
